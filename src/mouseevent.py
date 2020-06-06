@@ -13,7 +13,7 @@ def handle_event(event, x, y, flags, param):
 	
 	if (flags >> 3 & 0x01 == 1):
 		ctrl = True
-		print(True)
+	print(ctrl)
 
 	if event == cv2.EVENT_LBUTTONDOWN:
 		if ctrl == True:
@@ -23,7 +23,9 @@ def handle_event(event, x, y, flags, param):
 				param[0] = cv2.line(param[0], refPt[-2], refPt[-1],(0,255,255), 2)
 		elif len(refPt) >= 3:
 			param[0] = cv2.line(param[0], refPt[-1], refPt[0], (0,255,255), 2)
-			refPt = []		
+			refPt = []
+		else:
+			reset = True			
 
 	###########################################################################
 	# if (flags >> 3 & 0x01 == 1):
@@ -101,6 +103,7 @@ if __name__=="__main__":
 			reset = False
 			param = [img]
 			cv2.setMouseCallback("the_window", handle_event, param)
+			refPt = []
 
 
 		if key == ord("q"):

@@ -135,6 +135,10 @@ if __name__=="__main__":
 					x_vec = [int(round(m*(y_vec_v) + c)) for y_vec_v in y_vec]
 					for x_, y_ in zip(x_vec, y_vec):
 						refPt_fill.append((x_, y_))
+					x_vec_1 = range(min(refPt[i-1][0], refPt[i][0]), max(refPt[i-1][0], refPt[i][0]))
+					y_vec_1 = [int(round((x_vec - c)/m)) for x_vec in x_vec_1]
+					for x_, y_ in zip(x_vec_1, y_vec_1):
+						refPt_fill.append((x_, y_))
 											
 				else:
 					m = float(refPt[i-1][0] - refPt[i][0])/(refPt[i-1][1] - refPt[i][1])
@@ -143,6 +147,10 @@ if __name__=="__main__":
 					x_vec = [int(round(m*(y_vec_v) + c)) for y_vec_v in y_vec]
 					for x_, y_ in zip(x_vec, y_vec):
 						refPt_fill.append((x_, y_))
+					x_vec_1 = range(min(refPt[i-1][0], refPt[i][0]), max(refPt[i-1][0], refPt[i][0]))
+					y_vec_1 = [int(round((x_vec - c)/m)) for x_vec in x_vec_1]
+					for x_, y_ in zip(x_vec_1, y_vec_1):
+						refPt_fill.append((x_, y_))	
 													
 			else: # slope is inf
 				y_vec = (abs(refPt[i][0]-refPt[i-1][0])*[refPt[i][1]])

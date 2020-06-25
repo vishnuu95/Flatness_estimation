@@ -5,7 +5,9 @@ from sensor_msgs.msg import Image
 import cv2
 import numpy as np
 from cv_bridge import CvBridge
+import sys
 global reset, refPt, ctrl, drawing, completed, img_held, img, prev_ctrl
+
 
 def handler(data):
 	global reset, refPt, ctrl, drawing, completed, img_held, img
@@ -20,10 +22,7 @@ def handler(data):
 	# filewriter.write(bridge.imgmsg_to_cv2(data, "bgr8"))
 	img = bridge.imgmsg_to_cv2(data, "bgr8")
 	# param = [img]
-	
 
-	
-	
 	
 def mouse_callback(event, x, y, flags, param):
 	global reset, refPt, ctrl, drawing, completed, img_held, prev_ctrl, img
@@ -60,6 +59,7 @@ def mouse_callback(event, x, y, flags, param):
 
 
 if __name__=="__main__":
+	np.set_printoptions(threshold=sys.maxsize)
 
 	# filewriter = cv2.VideoWriter("~/test_video", cv2.VideoWriter_fourcc(*'MJPG'), 24, (640,480))
 	bridge = CvBridge()
@@ -113,7 +113,7 @@ if __name__=="__main__":
 		
 
 		# refPt = np.array([refPt])
-		print refPt
+		# print refPt
 		print "--------"
 		img_held2 = img_held.copy()
 		# hull = cv2.convexHull(refPt)
@@ -161,21 +161,100 @@ if __name__=="__main__":
 
 				for x_, y_ in zip(x_vec, y_vec):
 					refPt_fill.append((x_, y_))
-												
+		#########################################################################
+
+
 			# print ("every itr", refPt_fill_i)	
-		# img_held2 = img_held.copy()
+		img_held2 = img_held.copy()
 		# print(refPt_fill)
 		refPt_fill = np.array(refPt_fill)
-		print(refPt_fill.shape)
+		# print(refPt_fill.shape)
 		# print(refPt_fill[0])
 		# print(refPt_fill[1])
 		# print(refPt_fill[2])
-		for j in range(	len(refPt_fill)):
-			img_held2 = cv2.circle(img_held2, tuple(refPt_fill[j]), 3, (0,255,0))
-		# print ("end of itrs", refPt_fill)
+		# for j in range(	len(refPt_fill)):
+		# 	img_held2 = cv2.circle(img_held2, tuple(refPt_fill[j]), 3, (0,255,0))
+		# # # print ("end of itrs", refPt_fill)
+		# cv2.imshow("next_window", img_held2)
+		# cv2.waitKey(0)
+		# print refPt_fill
+		cv2.destroyAllWindows()
+		img_mask = np.full((img_held.shape), True, dtype=np.bool)
+		sortedPts = np.sort(refPt_fill.view('i8,i8'), order=['f0'], axis=0).view(np.int)
+		# print sortedPts.shape
+		sort_mask = np.full((sortedPts.shape), True, dtype = np.bool)
+		anc = sortedPts[0]
+		for i in range(1, sortedPts.shape[0]):
+			if anc[0] == sortedPts[i][0] and anc[1] == sortedPts[i][1]:
+				sort_mask[i] = np.array([False, False], dtype= np.bool)
+			anc = sortedPts[i]
+		
+		sortedPts = sortedPts[sort_mask].reshape(-1,2)
+		# for j in range(	len(sortedPts)):
+		# 	img_held2 = cv2.circle(img_held2, tuple(sortedPts[j]), 1, (0,0,255),0)
+		# # # # print ("end of itrs", refPt_fill)
+		# cv2.imshow("next_window", img_held2)
+		# cv2.waitKey(0)
+		# print sortedPts.shape
+		# print sortedPts
+		# input()
+		anc = sortedPts[0]
+		# val = False
+		lst = np.array([sortedPts[0]])
+		for i in range(1, sortedPts.shape[0]):
+		# for i in range(1, 100):
+			if anc[0] == sortedPts[i][0]:
+				lst = np.append(lst, np.array([sortedPts[i]]), axis = 0)
+			else:
+				lst = np.sort(lst.view('i8,i8'), order=['f0'], axis=0).view(np.int)
+				val = False
+				for j in range(lst.shape[0]-1):
+					# print ("j: ",j)
+					if (lst[j+1][1] - lst[j][1]) > 1:
+						print(lst[0][0])
+						y = np.arange(lst[j][1], lst[j+1][1])
+						x = np.full_like(y, lst[0][0])
+						# print(x,y)
+						# input()
+						img_mask[y,x,:] = (val, val, val) ## Why is it y,x ? suppossed to be x,y right?
+						val = not val
+						# print val
+
+				lst = np.array([sortedPts[i]])	
+			anc = sortedPts[i]
+
+		img_held2[img_mask] = 255
+
 		cv2.imshow("next_window", img_held2)
 		cv2.waitKey(0)
-		##########################################################################
+		
+		# anc = sortedPts[0][0]
+		# clustPts = np.array([sortedPts[0]])
+		# print clustPts
+		# clust = np.array([[sortedPts[0]]])
+		# # input()
+		# # print(sortedPts[20][0], anc)
+		# for i in range(1, 20):
+		# 	if sortedPts[i][0] != anc:
+		# 		print ("inside if clustPts ", clustPts)
+		# 		clustPts = np.sort(clustPts, axis = 1)
+		# 		print clust.shape
+		# 		print np.array([clustPts]).shape	
+		# 		clust = np.append(clust, np.array([clustPts]), axis = 0)
+		# 		clustPts = np.array([sortedPts[i][0]])
+		# 		anc = sortedPts[i][0]
+		# 		print("inside if clust ", clust)
+		# 	else:	# input()
+		# 		print clustPts.shape
+		# 		print np.array([sortedPts[i]]).shape
+		# 		clustPts = np.append(clustPts, np.array([sortedPts[i]]), axis = 0)
+		# 		# print (np.array([sortedPts[i]]))
+		# 		# print ("outside if clustPts", clustPts)	
+		# clust = np.append(clust, clustPts)
+		# clust = clust[1][:][:]
+		# print("outside if clust ", clust)
+		# # print clust	
+		
 
 		
 	

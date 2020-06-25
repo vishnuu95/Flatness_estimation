@@ -276,8 +276,14 @@ if __name__=="__main__":
 		xTx_inv = np.linalg.inv(np.matmul(A.T, A))
 		xTy = np.matmul(A.T, z)
 		sol = np.matmul(xTx_inv, xTy)
-		print sol
-
-		
+		# print sol
+		print sol.shape
+		dist = np.zeros((idx.shape[0],1))
+		denom = np.sqrt(sol[0][0]**2 + sol[1][0]**2 + 1)
+		for i in range(idx.shape[0]):
+			dist[i] = float(np.abs(sol[0][0]*idx[i][0] + sol[1][0]*idx[i][1] - z[i] + sol[2][0]))/denom
+		mean = np.mean(dist, axis=0)	
+		std = np.std(dist, axis=0)
+		print mean, std
 
 	cv2.destroyAllWindows()

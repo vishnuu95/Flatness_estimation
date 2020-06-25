@@ -179,7 +179,7 @@ if __name__=="__main__":
 		# cv2.waitKey(0)
 		# print refPt_fill
 		cv2.destroyAllWindows()
-		img_mask = np.full((img_held.shape), True, dtype=np.bool)
+		img_mask = np.full((img_held.shape), False, dtype=np.bool)
 		sortedPts = np.sort(refPt_fill.view('i8,i8'), order=['f0'], axis=0).view(np.int)
 		# print sortedPts.shape
 		sort_mask = np.full((sortedPts.shape), True, dtype = np.bool)
@@ -207,7 +207,7 @@ if __name__=="__main__":
 				lst = np.append(lst, np.array([sortedPts[i]]), axis = 0)
 			else:
 				lst = np.sort(lst.view('i8,i8'), order=['f0'], axis=0).view(np.int)
-				val = False
+				val = True
 				for j in range(lst.shape[0]-1):
 					# print ("j: ",j)
 					if (lst[j+1][1] - lst[j][1]) > 1:
@@ -223,37 +223,10 @@ if __name__=="__main__":
 				lst = np.array([sortedPts[i]])	
 			anc = sortedPts[i]
 
-		img_held2[img_mask] = 255
-
+		img_held2[img_mask] = 0
 		cv2.imshow("next_window", img_held2)
 		cv2.waitKey(0)
 		
-		# anc = sortedPts[0][0]
-		# clustPts = np.array([sortedPts[0]])
-		# print clustPts
-		# clust = np.array([[sortedPts[0]]])
-		# # input()
-		# # print(sortedPts[20][0], anc)
-		# for i in range(1, 20):
-		# 	if sortedPts[i][0] != anc:
-		# 		print ("inside if clustPts ", clustPts)
-		# 		clustPts = np.sort(clustPts, axis = 1)
-		# 		print clust.shape
-		# 		print np.array([clustPts]).shape	
-		# 		clust = np.append(clust, np.array([clustPts]), axis = 0)
-		# 		clustPts = np.array([sortedPts[i][0]])
-		# 		anc = sortedPts[i][0]
-		# 		print("inside if clust ", clust)
-		# 	else:	# input()
-		# 		print clustPts.shape
-		# 		print np.array([sortedPts[i]]).shape
-		# 		clustPts = np.append(clustPts, np.array([sortedPts[i]]), axis = 0)
-		# 		# print (np.array([sortedPts[i]]))
-		# 		# print ("outside if clustPts", clustPts)	
-		# clust = np.append(clust, clustPts)
-		# clust = clust[1][:][:]
-		# print("outside if clust ", clust)
-		# # print clust	
 		
 
 		

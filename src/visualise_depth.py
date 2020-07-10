@@ -6,6 +6,8 @@ import cv2
 import numpy as np
 from cv_bridge import CvBridge
 import sys
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 global reset, refPt, ctrl, drawing, completed, img_held, img, prev_ctrl, img_depth, img_depth_held
 
 
@@ -126,7 +128,7 @@ if __name__=="__main__":
 
 		# refPt = np.array([refPt])
 		# print refPt
-		print "--------"
+		# print "--------"
 		img_held2 = img_held.copy()
 
 		#**************
@@ -260,14 +262,31 @@ if __name__=="__main__":
 		cv2.imshow("next_window", img_depth_held2)
 		cv2.waitKey(0)
 		# print("depth vals: ",img_depth_held[img_mask[:,:,0]])
+		
 
+		############## CREATE X,Y,Z ARRAY #################
 		idx = np.where(img_mask[:,:,0] == True)
 		idx = np.array(idx).T
-		# # print (idx.shape)
 		pcl = np.hstack((idx, img_depth_held[img_mask[:,:,0]][:,None]))
-		# print pcl.shape
+		# print(pcl.shape)
 
-		# ax + by + c = z equation of line
+		############## Visualise gradient #################
+		idx_z_min = np.argmin(pcl[:,2])
+		idx_z_max = np.argmax(pcl[:,2])
+		z_min = np.amin(pcl[:,2])
+		z_max = np.amax(pcl[:,2])
+		scaling = float(255-50)/(z_max - z_min)
+		# print(idx_z_min, idx_z_max, scaling)
+		img_held3 = img_held.copy()
+		for i in range(idx.shape[0]):
+			shade = (pcl[i,2] - z_min)*scaling + 50
+			img_held3[pcl[i,0], pcl[i,1], :] = (shade, 0, 0)
+		cv2.imshow("gradient", img_held3)
+		cv2.waitKey(0)
+
+
+		################ PLANE FIT ###################
+		# ax + by + c = z equation of plane
 		ones = np.ones((pcl.shape[0],1))
 		A = np.hstack((idx, ones))
 		# print A
@@ -277,13 +296,66 @@ if __name__=="__main__":
 		xTy = np.matmul(A.T, z)
 		sol = np.matmul(xTx_inv, xTy)
 		# print sol
-		print sol.shape
+		# print sol.shape
+		##############################################
+
+		################ ANALYSIS ####################
+		# Along Z
 		dist = np.zeros((idx.shape[0],1))
+		dist_shortest = np.zeros((idx.shape[0],1))
 		denom = np.sqrt(sol[0][0]**2 + sol[1][0]**2 + 1)
 		for i in range(idx.shape[0]):
-			dist[i] = float(np.abs(sol[0][0]*idx[i][0] + sol[1][0]*idx[i][1] - z[i] + sol[2][0]))/denom
-		mean = np.mean(dist, axis=0)	
-		std = np.std(dist, axis=0)
-		print mean, std
+			z_plane = sol[0][0]*idx[i][0] + sol[1][0]*idx[i][1] + sol[2][0]
+			dist[i] = float(np.abs(z[i] - z_plane))
+			dist_shortest[i] = float(np.abs(sol[0][0]*pcl[i][0] + sol[1][0]*pcl[i][1] + sol[2][0] - pcl[i][2]))/denom
+		z_mean = np.mean(dist, axis=0)
+		z_std = np.std(dist, axis=0)
+		print "######### Along Z direction #########"
+		print ("mean: ", z_mean)
+		print ("std_dev: ", z_std)
+		# Shortest dist
+		p_mean = np.mean(dist_shortest, axis = 0)
+		p_std = np.std(dist_shortest, axis = 0)
+		print "######### Shortest Distance #########"
+		print ("mean: ", p_mean)
+		print ("std_dev: ", p_std)
+		
+		
+
+
+		######### VISUALISE OUTLIERS ########## 
+		threshold = 15
+		# print ("idx shape", idx.shape)
+		idx_outliers = np.where(dist > threshold, True, False)
+		# print ("outliers idx shape: ", idx_outliers.shape)
+		outliers = idx[idx_outliers[:,0], :]
+		# print ("outliers shape: ", outliers.shape)
+		# outliers = outliers.reshape(-1,3)
+		# print("outliers shape after reshape: ", outliers.shape)
+		img_held2[outliers[:,0], outliers[:,1], :] = (0,255,255)
+		cv2.imshow("next_window", img_held2)
+		cv2.waitKey(0)
+		
+		############################
+
+		############ 3D Visualisation ##########
+		fig = plt.figure()
+		ax = fig.add_subplot(111, projection = '3d')
+		ax.plot(pcl[:,0], pcl[:,1], pcl[:,2])
+		# Point on the plane
+		z_plane = np.zeros((idx.shape[0]))
+		x_plane = np.arange(np.amin(pcl[:,0]), np.amax(pcl[:,0]))
+		y_plane = np.arange(np.amin(pcl[:,1]), np.amax(pcl[:,1]))
+		xx, yy = np.meshgrid(x_plane, y_plane)
+		z_plane = sol[0][0]*xx + sol[1][0]*yy + sol[2][0]
+		ax.contour3D(xx, yy, z_plane, 100, cmap = 'binary')
+		ax.set_xlabel("pixel x")
+		ax.set_ylabel("pixel y")
+		ax.set_zlabel("depth value")
+		plt.show()
+
+
+
+
 
 	cv2.destroyAllWindows()

@@ -151,6 +151,58 @@ def visualize_mask(img_held2, img_mask, view_mask=False):
 		cv2.imshow("next_window", img_held2)
 		cv2.waitKey(0)
 
+def visualise_transformed_points(img_held2, sortedPts, img_mask, img_depth_mask, view_mask=False):
+	if (view_mask):
+		print(img_depth_mask.shape, img_mask.shape)
+		avail_pts_mask = np.where((img_depth_mask[:,:,0] >=0) & (img_depth_mask[:,:,0] <= img_mask.shape[0])
+		 & (img_depth_mask[:,:,1] >=0) & (img_depth_mask[:,:,1] <= img_mask.shape[1]) , True, False) #and img_depth_mask[:,:,0] <= img_mask.shape[0] and img_depth_mask[:,:,1] >=0 and img_depth_mask[:,:,1] <= img_mask.shape[1]
+		
+		img_avail_pts = np.full((img_mask.shape[0], img_mask.shape[1]), 0, dtype=np.uint8)
+		img_avail_pts[avail_pts_mask] = 255
+		cv2.imshow("All available transformed lidar pts", img_avail_pts)
+		cv2.waitKey(0)
+			
+		avail_pts = set()
+		sortedPts_set = set()
+		for i in range(img_mask.shape[0]):
+			for j in range(img_mask.shape[1]):
+				if(img_mask[i,j,0] == True):
+					sortedPts_set.add((i,j))
+
+		for i in range(avail_pts_mask.shape[0]):
+			for j in range(avail_pts_mask.shape[1]):
+				if(avail_pts_mask[i,j]):
+					avail_pts.add((i,j))
+		# print(len(avail_pts))
+		avail_intr_pts = avail_pts.intersection(sortedPts_set)
+		# print(len(avail_intr_pts))
+		unavail_pts = sortedPts_set.symmetric_difference(avail_intr_pts)
+		print(len(sortedPts_set), len(avail_intr_pts), len(unavail_pts))
+
+		for pt in unavail_pts:
+			# print(img_mask[pt])
+			img_mask[pt[0],pt[1],:] = (False, False, False)
+			# print(img_mask[pt])
+		img_held_avail_pts = img_held.copy()
+		img_held_avail_pts[img_mask] = 255
+		cv2.imshow("Available points of interest", img_held_avail_pts)
+		cv2.waitKey(0)
+
+		
+
+		# # print(avail_pts_mask.shape)
+		# # avail_pts = avail_pts.reshape(img_mask.shape[0],img_mask.shape[1])
+		# intr_pts = np.where(((avail_pts ==True) & img_mask == True), True, False)
+		# print(intr_pts.shape)
+		# intr_pts = intr_pts.reshape(img_mask.shape[0], img_mask.shape[1])
+		# print(intr_pts.shape)
+		# img_avail_d_pts = np.full((img_mask.shape[0], img_mask.shape[1]), 0, dtype=np.uint8)
+		# img_avail_d_pts[intr_pts] = 255
+		# cv2.imshow("available pts with depth", img_avail_d_pts)
+		# cv2.waitKey(0)
+
+		return img_mask
+
 def visualize_depth_img(img_depth_held2, img_mask, view_d_mask=False):
 	img_depth_held2 = img_depth_held.copy()
 	img_depth_held2[img_mask[:,:,0]] = 0
@@ -281,6 +333,29 @@ def visualize_3d_plot(pcl, idx, sol):
 	ax.set_zlabel("depth value")
 	plt.show()
 
+def find_correspondences(img_mask, K_cam, K_lidar, E_lidar_to_cam ):
+	img_depth_mask = np.full((img_mask.shape), False, dtype=np.bool)
+	pcl_l_c = np.full((img_depth_held.shape[0]*img_depth_held.shape[1], 4,1), 0, np.float)
+	print(pcl_l_c.shape)
+	i = 0
+	for r in range(img_depth_held.shape[0]):
+		for c in range(img_depth_held.shape[1]):
+			pcl_l_c[i,:] = np.array([[r],[c],[img_depth_held[r,c]],[1]])
+			i+=1
+	K_lidar_inv = np.linalg.inv(K_lidar)
+	pcl_l_w = np.matmul(K_lidar_inv, pcl_l_c[:,[0,1,3]])
+	print(pcl_l_w.shape)
+	pcl_l_w = np.matmul(pcl_l_w, pcl_l_c[:,2,np.newaxis])
+	print(pcl_l_w.shape, np.ones((pcl_l_w.shape[0],1,1)).shape)
+	pcl_l_w = np.concatenate((pcl_l_w, np.ones((pcl_l_w.shape[0],1,1))),axis=1)
+	pcl_c_w = np.matmul(E_lidar_to_cam, pcl_l_w)
+	# print(np.expand_dims(pcl_c_w,axis=2).shape)
+	pcl_c_c_h = np.matmul(K_cam, pcl_c_w[:,0:3])
+	pcl_c_c_nh = pcl_c_c_h/pcl_c_c_h[:,2,np.newaxis]
+	pcl_c_c_nh[:,2] = pcl_c_c_h[:,2]
+	pcl_c_c_nh = pcl_c_c_nh.astype(np.int).reshape(img_depth_held.shape[0], img_depth_held.shape[1],3)
+	
+	return  pcl_c_c_nh
 
 if __name__=="__main__":
 	# To print the entire array. 
@@ -294,13 +369,19 @@ if __name__=="__main__":
 	img_held = np.array([], dtype=np.uint8)
 	img = np.zeros([], dtype = np.uint8)
 	cv2.namedWindow("img_window")
+	K_lidar = np.array([732.8671875, 0.0, 519.9453125, 0.0, 732.5859375, 404.515625, 0.0, 0.0, 1.0]).reshape(3,3)
+	E_lidar_to_cam = np.array([[0.9999933242797852, -0.0011286167427897453, -0.0034778285771608353, -0.000917307217605412],
+							 [0.0010107026901096106, 0.999430775642395, -0.03372172638773918, 0.014059068635106087], 
+							 [0.0035139075480401516, 0.033717986196279526, 0.9994252324104309,-0.00447508879005909],
+							 [0, 0, 0, 1]])
+	K_cam = np.array([909.706787109375, 0.0, 649.1490478515625, 0.0, 910.05419921875, 362.3395690917969, 0.0, 0.0, 1.0]).reshape(3,3)
 
 	# Init ros nodes
 	rospy.init_node("visualise_depth", anonymous=True)
 	rospy.wait_for_message("camera/color/image_raw", Image)
 	rospy.Subscriber("camera/color/image_raw", Image, handler_img)
-	rospy.wait_for_message("camera/aligned_depth_to_color/image_raw", Image)
-	rospy.Subscriber("camera/aligned_depth_to_color/image_raw", Image, handler_depth)
+	rospy.wait_for_message("camera/depth/image_rect_raw", Image)
+	rospy.Subscriber("camera/depth/image_rect_raw", Image, handler_depth)
 	# rospy.Subscriber("camera/depth/image_rect_raw", Image, handler) # Depth image subscribe
 	# rospy.wait_for_message("camera/color/image_raw", Image)
 
@@ -322,9 +403,11 @@ if __name__=="__main__":
 	threshold = 15
 	view_outliers = True
 	
+
 	## Application Running 
 	# While loop to that resets, breaks and allows for interrupts to take place. 
 	while(loop):
+		
 		key = cv2.waitKey(1) & 0xFF
 		if (key == ord("r") or key == ord("R")):
 			completed = False
@@ -351,7 +434,8 @@ if __name__=="__main__":
 		# show the image with shaded part
 		# y = np.arange(0, img.shape[0])
 		# x = np.arange(0, img.shape[1])
-		print (refPt)
+		# print (refPt)
+		print(img_held.shape, img_depth_held.shape)
 		refPt_fill = []
 		img_held2 = img_held.copy()
 		refPt_fill = find_contour_pts(refPt, refPt_fill)
@@ -362,13 +446,17 @@ if __name__=="__main__":
 		# print(img_mask.shape)
 		img_mask = find_interior_pts(sortedPts, img_mask)
 
-		
+		img_depth_mask = find_correspondences(img_mask, K_cam, K_lidar, E_lidar_to_cam)
+
+
 		#visualise regular image
 		visualize_mask( img_held2, img_mask, view_mask)
+
+		img_mask = visualise_transformed_points(img_held2, sortedPts, img_mask, img_depth_mask, view_mask)
 		
 
 		#visualise depth image cutout
-		visualize_depth_img(img_depth_held, img_mask, view_mask)
+		# visualize_depth_img(img_depth_held, img_mask, view_mask)
 		
 
 		# pcl, idx = create_pc(img_mask, img_depth_held)
